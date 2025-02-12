@@ -70,12 +70,22 @@ class download_file_course_task extends \core\task\adhoc_task {
 
         try {
             $fs = get_file_storage();
-            $filecontent = @file_get_contents($fileurle);
+            //$filecontent = @file_get_contents($fileurle);
+            $ch = curl_init($fileurle); // added to below note
+            $filename = 'local_coursetransfer_' . $request->origin_course_id . '_' . time() . '.mbz';
+            $save_loc = $CFG->dataroot . $filename;
+            $fp = fopen($save_loc, 'wb');
+            curl_setopt($ch, CURLOPT_FILE, $fp);
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_exec($ch);
+            curl_close($ch);
+            fclose($fp); // end of added
 
-            if (!empty($filecontent)) {
+            //if (!empty($filecontent)) {
+            if (file_exists($save_loc)) { // added
                 $this->log('Backup File Dowload Success!');
 
-                $context = context_course::instance($request->target_course_id);
+                $context = context_course::instance($request->destiny_course_id);
                 $filename = 'local_coursetransfer_' . $request->origin_course_id . '_' . time() . '.mbz';
 
                 $fileinfo = [
@@ -86,7 +96,9 @@ class download_file_course_task extends \core\task\adhoc_task {
                         'filepath' => '/',
                         'filename' => $filename,
                 ];
-                $file = $fs->create_file_from_string($fileinfo, $filecontent);
+                //$file = $fs->create_file_from_string($fileinfo, $filecontent);
+                $file = $fs->create_file_from_pathname($fileinfo, $save_loc); // added
+                //TODO delete temp file
                 $this->log('Backup File Dowload in Moodle Success!');
                 $request->status = coursetransfer_request::STATUS_DOWNLOADED;
                 coursetransfer_request::insert_or_update($request, $request->id);
